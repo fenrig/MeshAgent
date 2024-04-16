@@ -216,8 +216,8 @@ PATH_RISCV64 = ../ToolChains/riscv64-linux-musl-x86_64/
 OBJECTS = $(patsubst %.c,%.o, $(SOURCES))
 
 # Compiler command name
-CC = gcc
-STRIP = strip
+CC ?= gcc
+STRIP ?= strip
 
 # Compiler for the Alpine / musl x86-64 target (ARCHID 33)
 # Building natively on Alpine it resolves to the host gcc, which is already musl.
@@ -237,8 +237,12 @@ MUSL_CC ?= $(shell gcc -dumpmachine 2>/dev/null | grep -q musl && echo gcc || ec
 INCDIRS = -I. -Iopenssl/include -Imicrostack -Imicroscript -Imeshcore -Imeshconsole
 
 # Compiler and linker flags
-CFLAGS ?= -std=gnu99 -g -Wall -D_POSIX -D_FILE_OFFSET_BITS=64 -DMICROSTACK_PROXY $(CWEBLOG) $(CWATCHDOG) -fno-strict-aliasing $(INCDIRS) -DDUK_USE_DEBUGGER_SUPPORT -DDUK_USE_INTERRUPT_COUNTER -DDUK_USE_DEBUGGER_INSPECT -DDUK_USE_DEBUGGER_PAUSE_UNCAUGHT
-LDFLAGS ?= -L. -lpthread -lutil -lm
+NATIVE_CFLAGS =
+ifneq ($(filter 6 20,$(ARCHID)),)
+NATIVE_CFLAGS += -march=native
+endif
+override CFLAGS += $(NATIVE_CFLAGS) -flto=auto -O2 -std=gnu99 -g -Wall -D_POSIX -D_FILE_OFFSET_BITS=64 -DMICROSTACK_PROXY $(CWEBLOG) $(CWATCHDOG) -fno-strict-aliasing $(INCDIRS) -DDUK_USE_DEBUGGER_SUPPORT -DDUK_USE_INTERRUPT_COUNTER -DDUK_USE_DEBUGGER_INSPECT -DDUK_USE_DEBUGGER_PAUSE_UNCAUGHT
+override LDFLAGS += -Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now -L. -lpthread -lutil -lm
 CEXTRA = -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -fstack-protector -fno-strict-aliasing
 LDEXTRA = 
 
@@ -356,7 +360,7 @@ ARCHNAME = mips
 CC = $(PATH_MIPS)mipsel-linux-gcc
 STRIP = $(PATH_MIPS)mipsel-linux-strip
 CEXTRA = -D_FORTIFY_SOURCE=2 -D_NOILIBSTACKDEBUG -D_NOFSWATCHER -Wformat -Wformat-security -fno-strict-aliasing -DILIBCHAIN_GLOBAL_LOCK
-CFLAGS += -DBADMATH 
+override CFLAGS += -DBADMATH 
 IPADDR_MONITOR_DISABLE = 1
 IFADDR_DISABLE = 1
 KVM = 0
@@ -372,7 +376,7 @@ export STAGING_DIR := $(PATH_OPENWRT_X86_64)
 CC = $(PATH_OPENWRT_X86_64)bin/x86_64-openwrt-linux-musl-gcc --sysroot=$(PATH_OPENWRT_X86_64)
 STRIP = $(PATH_OPENWRT_X86_64)bin/x86_64-openwrt-linux-musl-strip
 CEXTRA = -D_FORTIFY_SOURCE=2 -D_NOILIBSTACKDEBUG -D_NOFSWATCHER -Wformat -Wformat-security -fno-strict-aliasing
-CFLAGS += -DBADMATH 
+override CFLAGS += -DBADMATH 
 INCDIRS += -I$(PATH_OPENWRT_X86_64)include
 KVM = 0
 LMS = 0
@@ -387,7 +391,7 @@ export STAGING_DIR := $(PATH_MIPS24KC)
 CC = $(PATH_MIPS24KC)bin/mips-openwrt-linux-musl-gcc --sysroot=$(PATH_MIPS24KC)
 STRIP = $(PATH_MIPS24KC)bin/mips-openwrt-linux-musl-strip
 CEXTRA = -D_FORTIFY_SOURCE=2 -D_NOILIBSTACKDEBUG -D_NOFSWATCHER -Wformat -Wformat-security -fno-strict-aliasing
-CFLAGS += -DBADMATH 
+override CFLAGS += -DBADMATH 
 INCDIRS += -I$(PATH_MIPS24KC)include
 
 KVM = 0
@@ -402,7 +406,7 @@ export STAGING_DIR := $(PATH_MIPSEL24KC)
 CC = $(PATH_MIPSEL24KC)bin/mipsel-openwrt-linux-musl-gcc --sysroot=$(PATH_MIPSEL24KC)
 STRIP = $(PATH_MIPSEL24KC)bin/mipsel-openwrt-linux-musl-strip
 CEXTRA = -D_FORTIFY_SOURCE=2 -D_NOILIBSTACKDEBUG -D_NOFSWATCHER -Wformat -Wformat-security -fno-strict-aliasing
-CFLAGS += -DBADMATH 
+override CFLAGS += -DBADMATH 
 INCDIRS += -I$(PATH_MIPSEL24KC)include
 
 KVM = 0
@@ -417,7 +421,7 @@ export STAGING_DIR := $(PATH_OPENWRT_ARMVIRT32)
 CC = $(PATH_OPENWRT_ARMVIRT32)bin/arm-openwrt-linux-gcc --sysroot=$(PATH_OPENWRT_ARMVIRT32)
 STRIP = $(PATH_OPENWRT_ARMVIRT32)bin/arm-openwrt-linux-muslgnueabi-strip
 CEXTRA = -D_FORTIFY_SOURCE=2 -D_NOILIBSTACKDEBUG -D_NOFSWATCHER -Wformat -Wformat-security -fno-strict-aliasing
-CFLAGS += -DBADMATH 
+override CFLAGS += -DBADMATH 
 INCDIRS += -I$(PATH_OPENWRT_ARMVIRT32)include
 
 KVM = 0
@@ -444,8 +448,8 @@ CC = $(PATH_ARM5)arm-none-linux-gnueabi-gcc
 STRIP = $(PATH_ARM5)arm-none-linux-gnueabi-strip
 KVM = 0
 LMS = 0
-CFLAGS += -D_NOFSWATCHER 
-CFLAGS += -DILIBCHAIN_GLOBAL_LOCK
+override CFLAGS += -D_NOFSWATCHER 
+override CFLAGS += -DILIBCHAIN_GLOBAL_LOCK
 CEXTRA = -fno-strict-aliasing
 endif
 
@@ -466,7 +470,7 @@ CC = $(PATH_POKY)i586-poky-linux-uclibc-gcc --sysroot=../Galileo/arduino-1.5.3/h
 STRIP = $(PATH_POKY)i586-poky-linux-uclibc-strip
 KVM = 0
 LMS = 0
-CFLAGS += -D_NOFSWATCHER
+override CFLAGS += -D_NOFSWATCHER
 CEXTRA = -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -fno-strict-aliasing
 endif
 
@@ -477,7 +481,7 @@ CC = $(PATH_POKY64)x86_64-poky-linux-gcc
 STRIP = $(PATH_POKY64)x86_64-poky-linux-strip
 KVM = 0
 LMS = 0
-CFLAGS += -D_NOFSWATCHER
+override CFLAGS += -D_NOFSWATCHER
 #CEXTRA = -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -fno-strict-aliasing
 endif
 
@@ -505,7 +509,7 @@ CC = $(PATH_LINARO)arm-linux-gnueabihf-gcc
 STRIP = $(PATH_LINARO)arm-linux-gnueabihf-strip
 KVM = 0
 LMS = 0
-CFLAGS += -D_NOFSWATCHER 
+override CFLAGS += -D_NOFSWATCHER 
 CEXTRA = -fno-strict-aliasing 
 endif
 
@@ -520,7 +524,7 @@ KVM = 1
 LMS = 0
 CEXTRA = -fno-strict-aliasing
 # Bind the pre-2.29 libm symbols so a bullseye-built binary still loads on Buster (glibc 2.28).
-CFLAGS += -include microstack/glibc_compat.h
+override CFLAGS += -include microstack/glibc_compat.h
 endif
 
 # Official Linux ARM 64bit
@@ -540,7 +544,7 @@ ARCHNAME = armhf2
 #STRIP = arm-linux-gnueabihf-strip
 KVM = 0
 LMS = 0
-CFLAGS += -D_NOFSWATCHER 
+override CFLAGS += -D_NOFSWATCHER 
 CEXTRA = -fno-strict-aliasing 
 endif
 
@@ -548,7 +552,7 @@ endif
 ifeq ($(ARCHID),30)
 ARCHNAME = freebsd_x86-64
 CC = clang
-CFLAGS += -I/usr/local/include
+override CFLAGS += -I/usr/local/include
 KVM = 0
 LMS = 0
 endif
@@ -557,21 +561,21 @@ endif
 ifeq ($(ARCHID),37)
 ARCHNAME = openbsd_x86-64
 CC = clang
-CFLAGS += -I/usr/local/include
+override CFLAGS += -I/usr/local/include
 KVM = 0
 LMS = 0
 endif
 
 
 ifeq ($(WEBLOG),1)
-CFLAGS += -D_REMOTELOGGINGSERVER -D_REMOTELOGGING
+override CFLAGS += -D_REMOTELOGGINGSERVER -D_REMOTELOGGING
 endif
 
 ifeq ($(KVM),1)
 # Mesh Agent KVM, this is only included in builds that have KVM support
 LINUXKVMSOURCES = meshcore/KVM/Linux/linux_kvm.c meshcore/KVM/Linux/linux_kvm_wayland.c meshcore/KVM/Linux/linux_kvm_drm.c meshcore/KVM/Linux/linux_kvm_drm_egl.c meshcore/KVM/Linux/linux_kvm_rotated.c meshcore/KVM/Linux/linux_kvm_xkb.c meshcore/KVM/Linux/linux_events.c meshcore/KVM/Linux/linux_events_evdev.c meshcore/KVM/Linux/linux_tile.c meshcore/KVM/Linux/linux_compression.c
 MACOSKVMSOURCES = meshcore/KVM/MacOS/mac_kvm.c meshcore/KVM/MacOS/mac_events.c meshcore/KVM/MacOS/mac_tile.c meshcore/KVM/Linux/linux_compression.c
-CFLAGS += -D_LINKVM
+override CFLAGS += -D_LINKVM
 DRMLIBS =
 # The DRM/Wayland header probes only make sense on Linux goals; macOS/BSD also set KVM=1 but a
 # parse-time $(error) here would kill e.g. 'make macos' on hosts without wayland-client.
@@ -581,14 +585,14 @@ ifneq (,$(filter linux pi,$(MAKECMDGOALS)))
     # out of NEEDED and the agent runs without a DRM/GL stack. Headers still needed (DRMCFLAGS).
     WAYLANDCLIENT = $(shell pkg-config --exists wayland-client 2>/dev/null && echo 1)
     ifneq ($(strip $(DRMCFLAGS)),)
-        CFLAGS += $(DRMCFLAGS)
+        override CFLAGS += $(DRMCFLAGS)
     else
         $(error Linux KVM builds require the libdrm, EGL and GLES development packages (pkg-config libdrm egl glesv2))
     endif
     ifneq ($(WAYLANDCLIENT),1)
         $(error Linux KVM builds require the wayland-client development package)
     endif
-    CFLAGS += $(shell pkg-config --cflags wayland-client)
+    override CFLAGS += $(shell pkg-config --cflags wayland-client)
     # libwayland-client is dlopen'd at runtime (linux_kvm_drm.c), not linked — headers only.
     # If the system headers are jpeg8 (JPEG_LIB_VERSION >= 80) and a v80 lib exists, default to it
     # so the linked lib matches the headers, else libjpeg aborts at runtime ("Wrong JPEG library
@@ -626,12 +630,12 @@ endif
 endif
 
 ifeq ($(LMS),0)
-CFLAGS += -D_NOHECI
+override CFLAGS += -D_NOHECI
 endif
 
 ifeq ($(WEBRTCDEBUG),1)
 # Adds WebRTC Debug Interfaces
-CFLAGS += -D_WEBRTCDEBUG
+override CFLAGS += -D_WEBRTCDEBUG
 endif
 
 ifneq ($(WatchDog),0)
@@ -640,7 +644,7 @@ endif
 
 ifeq ($(NOTLS),1)
 SOURCES += microstack/nossl/sha384-512.c microstack/nossl/sha224-256.c microstack/nossl/md5.c microstack/nossl/sha1.c
-CFLAGS += -DMICROSTACK_NOTLS
+override CFLAGS += -DMICROSTACK_NOTLS
 LINUXSSL = 
 MACSSL =
 BSDSSL =
@@ -648,7 +652,7 @@ else
 LINUXSSL = -Lopenssl/libstatic/linux/$(ARCHNAME)
 MACSSL = -Lopenssl/libstatic/macos/$(ARCHNAME)
 BSDSSL = -Lopenssl/libstatic/bsd/$(ARCHNAME)
-CFLAGS += -DMICROSTACK_TLS_DETECT
+override CFLAGS += -DMICROSTACK_TLS_DETECT
 LDEXTRA += -lssl -lcrypto
 endif
 
@@ -661,76 +665,76 @@ endif
 
 ifeq ($(DEBUG),1)
 # Debug Build, include Symbols
-CFLAGS += -g -D_DEBUG 
+override CFLAGS += -g -D_DEBUG 
 STRIP = $(NOECHO) $(NOOP)
 SYMBOLCP = $(NOECHO) $(NOOP)
 else
-CFLAGS += -O2
+override CFLAGS += -O2
 STRIP += ./$(EXENAME)_$(ARCHNAME)$(EXENAME2)
 SYMBOLCP = cp ./$(EXENAME)_$(ARCHNAME)$(EXENAME2) ./DEBUG_$(EXENAME)_$(ARCHNAME)$(EXENAME2)
 endif
 
 ifeq ($(SSL_TRACE),1)
-CFLAGS += -DSSL_TRACE
+override CFLAGS += -DSSL_TRACE
 endif
 
 ifeq ($(IPADDR_MONITOR_DISABLE),1)
-CFLAGS += -DNO_IPADDR_MONITOR
+override CFLAGS += -DNO_IPADDR_MONITOR
 endif
 
 ifeq ($(IFADDR_DISABLE),1)
-CFLAGS += -DNO_IFADDR
+override CFLAGS += -DNO_IFADDR
 endif
 
 ifeq ($(FSWATCH_DISABLE),1)
-CFLAGS += -D_NOFSWATCHER
+override CFLAGS += -D_NOFSWATCHER
 endif
 
 ifeq ($(CRASH_HANDLER),0)
-CFLAGS += -D_NOILIBSTACKDEBUG
+override CFLAGS += -D_NOILIBSTACKDEBUG
 endif
 
 ifeq ($(SSL_EXPORTABLE_KEYS),1)
-CFLAGS += -D_SSL_KEYS_EXPORTABLE
+override CFLAGS += -D_SSL_KEYS_EXPORTABLE
 endif
 
 ifeq ($(TLS_WRITE_TRACE),1)
-CFLAGS += -D_TLSLOG
+override CFLAGS += -D_TLSLOG
 endif
 
 ifeq ($(NET_SEND_FORCE_FRAGMENT),1)
-CFLAGS += -D_DEBUG_NET_FRAGMENT_SEND
+override CFLAGS += -D_DEBUG_NET_FRAGMENT_SEND
 endif
 
 ifeq ($(KVM_ALL_TILES),1)
-CFLAGS += -DKVM_ALL_TILES
+override CFLAGS += -DKVM_ALL_TILES
 endif
 ifeq ($(KVMDEBUG),1)
-CFLAGS += -DKVMDEBUGENABLED
+override CFLAGS += -DKVMDEBUGENABLED
 endif
 
 ifeq ($(BIGCHAINLOCK),1)
-CFLAGS += -DILIBCHAIN_GLOBAL_LOCK
+override CFLAGS += -DILIBCHAIN_GLOBAL_LOCK
 endif
 
 ifeq ($(NOWEBRTC),1)
-CFLAGS += -DNO_WEBRTC -DOLDSSL
+override CFLAGS += -DNO_WEBRTC -DOLDSSL
 SOURCES += microstack/ILibWebRTC.c
 else
 SOURCES += microstack/ILibWebRTC.c microstack/ILibWrapperWebRTC.c microscript/ILibDuktape_WebRTC.c
 endif
 
 ifeq ($(FIPS),1)
-CFLAGS += -DFIPSMODE
+override CFLAGS += -DFIPSMODE
 endif
 
 ifeq ($(MEMTRACK),1)
-CFLAGS += -DILIBMEMTRACK
+override CFLAGS += -DILIBMEMTRACK
 endif
 
 GCCTEST := $(shell $(CC) meshcore/dummy.c -o /dev/null -no-pie > /dev/null 2>&1 ; echo $$? )
 ifeq ($(GCCTEST),0)
-LDFLAGS += -no-pie
+override LDFLAGS += -no-pie
 endif
 
 GITTEST := $(shell git log -1 > /dev/null 2>&1 ; echo $$? )
