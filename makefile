@@ -165,7 +165,7 @@
 #	LEGACY_LD								0 = Standard, 1 = Legacy			=> Default is Standard (CentOS 5.11 requires Legacy)
 #	NET_SEND_FORCE_FRAGMENT					1 = net.send() fragments sends		=> Default is normal send operation
 #	NOTLS									1 = TLS Support Compiled Out		=> Default is TLS Support Compiled In
-#	NOTURBOJPEG								1 = Don't use Turbo JPEG			=> Default is USE TurboJPEG
+#	NOTURBOJPEG								1 = Use system libjpeg			=> Default depends on target
 #	SSL_EXPORTABLE_KEYS						1 = Export SSL Keys for debugging	=> Default is DO NOT export SSL keys
 #	TLS_WRITE_TRACE							1 = Enable TLS Send Tracing			=> Default is tracing disabled
 #	WatchDog								WatchDog timer interval.			=> Default is 6000000
@@ -594,11 +594,14 @@ ifneq (,$(filter linux pi,$(MAKECMDGOALS)))
     endif
     override CFLAGS += $(shell pkg-config --cflags wayland-client)
     # libwayland-client is dlopen'd at runtime (linux_kvm_drm.c), not linked — headers only.
-    # If the system headers are jpeg8 (JPEG_LIB_VERSION >= 80) and a v80 lib exists, default to it
-    # so the linked lib matches the headers, else libjpeg aborts at runtime ("Wrong JPEG library
-    # version"). Skipped when JPEGVER is set explicitly or NOTURBOJPEG=1.
+# Native x86-64 Linux builds use the system libjpeg by default. Cross and legacy targets retain
+# the bundled archive unless NOTURBOJPEG=1 is specified. JPEGVER always selects a bundled archive.
+SYSTEMJPEG ?= $(if $(filter 6 20,$(ARCHID)),1,0)
+
+    # If the system headers are jpeg8 (JPEG_LIB_VERSION >= 80) and a v80 lib exists, select the
+    # matching bundled archive when JPEGVER was not explicitly set and system JPEG is disabled.
     ifeq ($(JPEGVER),)
-        ifneq ($(NOTURBOJPEG),1)
+        ifeq ($(filter 1 yes true,$(SYSTEMJPEG) $(NOTURBOJPEG)),)
             JPEG_HDR_VERSION := $(shell $(CC) -include jpeglib.h -E -dM -xc - </dev/null 2>/dev/null | sed -n 's/.*JPEG_LIB_VERSION \([0-9][0-9]*\).*/\1/p' | head -n1)
             ifeq ($(shell test "$(JPEG_HDR_VERSION)" -ge 80 2>/dev/null && test -f lib-jpeg-turbo/linux/$(ARCHNAME)/v80/libturbojpeg.a && echo yes),yes)
                 JPEGVER = v80
@@ -615,7 +618,7 @@ endif
         endif
         MACOSFLAGS = ./lib-jpeg-turbo/macos/$(ARCHNAME)/$(JPEGVER)/libturbojpeg.a
     else
-        ifeq ($(NOTURBOJPEG),1)
+        ifneq ($(filter 1 yes true,$(SYSTEMJPEG) $(NOTURBOJPEG)),)
             LINUXFLAGS = -ljpeg
         else
             ifeq ($(LEGACY_LD),1)
